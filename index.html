@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Nhận diện Địa điểm Du lịch - Teachable Machine</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      padding: 30px;
+      background: #f0f2f5;
+    }
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+    h2 {
+      margin-top: 0;
+      color: #1a73e8;
+    }
+    .upload-box {
+      border: 2px dashed #b0bec5;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      cursor: pointer;
+      background: #fafafa;
+      transition: border-color 0.2s;
+    }
+    .upload-box:hover {
+      border-color: #1a73e8;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .btn-upload {
+      display: inline-block;
+      padding: 8px 16px;
+      background-color: #1a73e8;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    #image-preview {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: 8px;
+      display: none;
+      margin: 15px auto;
+      object-fit: cover;
+    }
+    #result-box {
+      margin-top: 20px;
+      text-align: left;
+    }
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+    .result-item.highlight {
+      background: #e8f0fe;
+      font-weight: bold;
+      color: #1a73e8;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Nhận diện Địa điểm Du lịch</h2>
+    <p>Tải ảnh địa điểm (Quảng Ninh, Đà Nẵng,...) để mô hình phân loại</p>
+
+    <!-- Khu vực upload ảnh -->
+    <div class="upload-box" onclick="document.getElementById('file-input').click()">
+      <span class="btn-upload">Chọn ảnh từ máy tính</span>
+      <p style="margin: 8px 0 0; font-size: 13px; color: #666;">hoặc kéo thả ảnh vào đây</p>
+      <input type="file" id="file-input" accept="image/*" onchange="handleImageUpload(event)">
+    </div>
+
+    <!-- Khung hiển thị ảnh xem trước -->
+    <img id="image-preview" alt="Xem trước ảnh">
+
+    <!-- Khung kết quả đo -->
+    <div id="result-box"></div>
+  </div>
+
+  <!-- Thư viện TensorFlow.js và Teachable Machine -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <script type="text/javascript">
+    // Đường link mô hình Teachable Machine của bạn
+    const URL = "https://teachablemachine.withgoogle.com/models/5HU1AJMZv/";
+
+    let model, maxPredictions;
+    const imgElement = document.getElementById("image-preview");
+    const resultBox = document.getElementById("result-box");
+
+    // Khởi tạo và tải mô hình
+    async function loadModel() {
+      resultBox.innerHTML = "<p style='text-align: center; color: #666;'>Đang tải mô hình...</p>";
+      model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+      maxPredictions = model.getTotalClasses();
+      resultBox.innerHTML = "<p style='text-align: center; color: #2e7d32;'>Mô hình đã sẵn sàng! Hãy chọn một tấm ảnh.</p>";
+    }
+
+    // Xử lý khi người dùng chọn file ảnh
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        imgElement.src = e.target.result;
+        imgElement.style.display = "block";
+
+        // Chờ ảnh load hoàn tất vào thẻ <img> trước khi đưa vào mô hình đo
+        imgElement.onload = async function() {
+          await predictImage();
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Dự đoán kết quả từ thẻ img
+    async function predictImage() {
+      if (!model) return;
+      resultBox.innerHTML = "<p style='text-align: center;'>Đang phân tích...</p>";
+
+      // Đưa trực tiếp phần tử DOM <img> vào hàm predict
+      const prediction = await model.predict(imgElement);
+
+      // Sắp xếp kết quả theo độ tin cậy từ cao xuống thấp
+      prediction.sort((a, b) => b.probability - a.probability);
+
+      resultBox.innerHTML = "";
+      prediction.forEach((item, index) => {
+        const percent = (item.probability * 100).toFixed(1);
+        const div = document.createElement("div");
+        // Đánh dấu nổi bật kết quả có điểm số cao nhất
+        div.className = index === 0 ? "result-item highlight" : "result-item";
+        div.innerHTML = `<span>${item.className}</span><span>${percent}%</span>`;
+        resultBox.appendChild(div);
+      });
+    }
+
+    // Gọi tải mô hình khi tải trang xong
+    window.addEventListener("DOMContentLoaded", loadModel);
+  </script>
+</body>
+</html>
